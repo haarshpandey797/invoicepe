@@ -41,6 +41,7 @@ public class InvoiceService {
     private final ClientRepository clientRepository;
     private final GstCalculator gstCalculator;
     private final InvoiceNumberGenerator invoiceNumberGenerator;
+    private final PdfService pdfService;
 
     @Transactional
     public InvoiceResponse create(User user, CreateInvoiceRequest request) {
@@ -77,6 +78,15 @@ public class InvoiceService {
     @Transactional(readOnly = true)
     public InvoiceResponse getById(User user, UUID id) {
         return InvoiceResponse.from(requireInvoice(user, id));
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generatePdf(User user, UUID id) {
+        Invoice invoice = requireInvoice(user, id);
+        // Touch lazy associations so the PDF can be built inside this transaction.
+        invoice.getItems().size();
+        invoice.getClient().getName();
+        return pdfService.generateInvoicePdf(invoice);
     }
 
     @Transactional
