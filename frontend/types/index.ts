@@ -171,7 +171,39 @@ export interface DashboardSummary {
   totalEarnedThisMonth: string;
   totalPending: string;
   totalOverdue: string;
+  invoicesThisMonth: number;
   statusCounts: Record<string, number>;
+}
+
+/** ReminderLogResponse. */
+export interface ReminderLog {
+  id: string;
+  reminderType: string;
+  channel: string;
+  sentAt: string | null;
+  status: string;
+  errorMessage: string | null;
+}
+
+/** UpdateProfileRequest payload. */
+export interface ProfileInput {
+  businessName?: string;
+  gstin?: string;
+  pan?: string;
+  phone?: string;
+  address?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  upiId?: string;
+  logoUrl?: string;
+}
+
+/** UpdateWhatsAppConfigRequest payload. */
+export interface WhatsAppConfigInput {
+  whatsappEnabled: boolean;
+  whatsappPhoneNumberId?: string;
+  whatsappAccessToken?: string;
 }
 
 /** MonthlyEarning record (dashboard /monthly). */
