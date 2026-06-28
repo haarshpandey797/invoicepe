@@ -51,6 +51,7 @@ public class InvoiceService {
     private final PdfService pdfService;
     private final StorageService storageService;
     private final RazorpayService razorpayService;
+    private final WhatsAppService whatsAppService;
 
     @Transactional
     public InvoiceResponse create(User user, CreateInvoiceRequest request) {
@@ -124,6 +125,15 @@ public class InvoiceService {
         invoice.setStatus(STATUS_SENT);
 
         invoice = invoiceRepository.save(invoice);
+
+        // Best-effort WhatsApp delivery; a failure must not undo the 'sent' status.
+        try {
+            whatsAppService.sendInvoiceMessage(invoice, invoice.getPdfUrl());
+        } catch (Exception e) {
+            log.error("WhatsApp delivery failed for invoice {}; invoice remains sent",
+                    invoice.getInvoiceNumber(), e);
+        }
+
         log.info("Invoice {} sent for user {}", invoice.getInvoiceNumber(), user.getId());
         return InvoiceResponse.from(invoice);
     }
