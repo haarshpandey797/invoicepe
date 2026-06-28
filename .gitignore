@@ -24,3 +24,4 @@ out/
 # ===== Logs =====
 *.log
 logs/
+/ENV_VARS.md
