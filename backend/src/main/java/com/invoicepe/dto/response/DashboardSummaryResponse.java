@@ -13,5 +13,6 @@ public class DashboardSummaryResponse {
     private BigDecimal totalEarnedThisMonth;
     private BigDecimal totalPending;
     private BigDecimal totalOverdue;
+    private long invoicesThisMonth;
     private Map<String, Long> statusCounts;
 }

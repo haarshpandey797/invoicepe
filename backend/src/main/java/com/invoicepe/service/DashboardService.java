@@ -45,6 +45,8 @@ public class DashboardService {
                 .sumAmountByUserIdAndPaidAtBetween(user.getId(), monthStart, nextMonthStart);
         BigDecimal pending = invoiceRepository.sumTotalAmountByUserIdAndStatus(user.getId(), "sent");
         BigDecimal overdue = invoiceRepository.sumTotalAmountByUserIdAndStatus(user.getId(), "overdue");
+        long invoicesThisMonth = invoiceRepository.countByUserIdAndYearAndMonth(
+                user.getId(), thisMonth.getYear(), thisMonth.getMonthValue());
 
         Map<String, Long> statusCounts = new LinkedHashMap<>();
         for (Object[] row : invoiceRepository.countByStatusForUser(user.getId())) {
@@ -55,6 +57,7 @@ public class DashboardService {
                 .totalEarnedThisMonth(earned)
                 .totalPending(pending)
                 .totalOverdue(overdue)
+                .invoicesThisMonth(invoicesThisMonth)
                 .statusCounts(statusCounts)
                 .build();
     }

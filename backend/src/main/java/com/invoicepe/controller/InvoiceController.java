@@ -5,6 +5,7 @@ import com.invoicepe.dto.request.CreateInvoiceRequest;
 import com.invoicepe.dto.response.ApiResponse;
 import com.invoicepe.dto.response.InvoiceResponse;
 import com.invoicepe.dto.response.PagedResponse;
+import com.invoicepe.dto.response.ReminderLogResponse;
 import com.invoicepe.service.InvoiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -27,12 +29,13 @@ public class InvoiceController {
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<InvoiceResponse>>> list(
             @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
 
         PagedResponse<InvoiceResponse> invoices =
-                invoiceService.list(principal.getUser(), status, page, size);
+                invoiceService.list(principal.getUser(), status, search, page, size);
         return ResponseEntity.ok(ApiResponse.success(invoices));
     }
 
@@ -101,5 +104,14 @@ public class InvoiceController {
 
         InvoiceResponse invoice = invoiceService.markPaid(principal.getUser(), id);
         return ResponseEntity.ok(ApiResponse.success("Invoice marked as paid", invoice));
+    }
+
+    @GetMapping("/{id}/reminders")
+    public ResponseEntity<ApiResponse<List<ReminderLogResponse>>> reminders(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(invoiceService.getReminders(principal.getUser(), id)));
     }
 }

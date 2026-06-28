@@ -21,6 +21,18 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Page<Invoice> findByUserIdAndStatus(UUID userId, String status, Pageable pageable);
 
+    /**
+     * Lists a user's invoices with optional status and client-name search filters.
+     * Passing {@code null} for a filter disables it.
+     */
+    @Query("SELECT i FROM Invoice i WHERE i.user.id = :userId " +
+            "AND (:status IS NULL OR i.status = :status) " +
+            "AND (:search IS NULL OR LOWER(i.client.name) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<Invoice> searchForUser(@Param("userId") UUID userId,
+                                @Param("status") String status,
+                                @Param("search") String search,
+                                Pageable pageable);
+
     Optional<Invoice> findByIdAndUserId(UUID id, UUID userId);
 
     Optional<Invoice> findByRazorpayPaymentLinkId(String razorpayPaymentLinkId);

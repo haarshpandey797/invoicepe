@@ -4,6 +4,7 @@ import com.invoicepe.dto.request.CreateInvoiceRequest;
 import com.invoicepe.dto.request.InvoiceItemRequest;
 import com.invoicepe.dto.response.InvoiceResponse;
 import com.invoicepe.dto.response.PagedResponse;
+import com.invoicepe.dto.response.ReminderLogResponse;
 import com.invoicepe.exception.InvoicePeException;
 import com.invoicepe.exception.PlanLimitException;
 import com.invoicepe.exception.ResourceNotFoundException;
@@ -15,6 +16,7 @@ import com.invoicepe.model.User;
 import com.invoicepe.repository.ClientRepository;
 import com.invoicepe.repository.InvoiceRepository;
 import com.invoicepe.repository.PaymentRepository;
+import com.invoicepe.repository.ReminderLogRepository;
 import com.invoicepe.util.GstBreakdown;
 import com.invoicepe.util.GstCalculator;
 import com.invoicepe.util.InvoiceNumberGenerator;
@@ -52,6 +54,7 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
     private final PaymentRepository paymentRepository;
+    private final ReminderLogRepository reminderLogRepository;
     private final GstCalculator gstCalculator;
     private final InvoiceNumberGenerator invoiceNumberGenerator;
     private final PdfService pdfService;
@@ -94,12 +97,22 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public PagedResponse<InvoiceResponse> list(User user, String status, int page, int size) {
+    public PagedResponse<InvoiceResponse> list(User user, String status, String search, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Invoice> result = (status == null || status.isBlank())
-                ? invoiceRepository.findByUserId(user.getId(), pageable)
-                : invoiceRepository.findByUserIdAndStatus(user.getId(), status, pageable);
+        String statusFilter = (status == null || status.isBlank()) ? null : status;
+        String searchFilter = (search == null || search.isBlank()) ? null : search.trim();
+        Page<Invoice> result =
+                invoiceRepository.searchForUser(user.getId(), statusFilter, searchFilter, pageable);
         return PagedResponse.from(result.map(InvoiceResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReminderLogResponse> getReminders(User user, UUID id) {
+        Invoice invoice = requireInvoice(user, id); // enforces ownership
+        return reminderLogRepository.findByInvoiceIdOrderBySentAtDesc(invoice.getId())
+                .stream()
+                .map(ReminderLogResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)

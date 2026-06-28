@@ -4,6 +4,7 @@ import com.invoicepe.model.ReminderLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -14,4 +15,7 @@ public interface ReminderLogRepository extends JpaRepository<ReminderLog, UUID> 
      * Used to skip duplicates (failed attempts are allowed to retry).
      */
     boolean existsByInvoiceIdAndReminderTypeAndStatus(UUID invoiceId, String reminderType, String status);
+
+    /** Reminder history for an invoice, newest first. */
+    List<ReminderLog> findByInvoiceIdOrderBySentAtDesc(UUID invoiceId);
 }
