@@ -13,7 +13,7 @@ spring:
 
 app:
   jwt:
-    secret: <YOUR_256_BIT_JWT_SECRET>
+    secret: <YOUR_JWT_SECRET_MIN_32_CHARS>  # Must be ≥32 characters for HS256
     expiration: 86400000        # 24 hours in ms
   frontend-url: http://localhost:3000
   storage:
