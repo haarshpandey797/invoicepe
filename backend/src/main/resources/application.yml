@@ -28,8 +28,13 @@ spring:
 
 app:
   jwt:
-    secret: your-256-bit-secret-here-replace-before-running
+    secret: ${APP_JWT_SECRET:placeholder}
     expiration: 86400000
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
+  storage:
+    supabase-url: ${SUPABASE_URL:placeholder}
+    supabase-key: ${SUPABASE_KEY:placeholder}
+    bucket-name: invoices
 
 razorpay:
   key-id: rzp_test_xxxxxxxxxxxx
@@ -42,14 +47,8 @@ whatsapp:
   api-url: https://graph.facebook.com/v18.0
 
 resend:
-  api-key: re_xxxxxxxxxxxx
+  api-key: ${RESEND_API_KEY:placeholder}
   from-email: invoices@invoicepe.in
-
-  frontend-url: http://localhost:3000
-  storage:
-    supabase-url: https://xxxx.supabase.co
-    supabase-key: your-supabase-anon-key
-    bucket-name: invoices
 
 server:
   port: 8080
