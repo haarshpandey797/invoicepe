@@ -41,15 +41,15 @@ class ReminderSchedulerServiceTest {
 
     @Test
     void selectsInvoicesByDueDateForEachReminderType() {
-        Invoice preDue = invoice();
-        Invoice onDue = invoice();
-        Invoice postDue3 = invoice();
-        Invoice postDue7 = invoice();
+        Invoice preDue = invoice("sent");
+        Invoice onDue = invoice("sent");
+        Invoice postDue3 = invoice("sent");
+        Invoice postDue7 = invoice("sent");
 
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.plusDays(3))).thenReturn(List.of(preDue));
-        when(invoiceRepository.findByStatusAndDueDate("sent", today)).thenReturn(List.of(onDue));
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.minusDays(3))).thenReturn(List.of(postDue3));
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.minusDays(7))).thenReturn(List.of(postDue7));
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today.plusDays(3))).thenReturn(List.of(preDue));
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today)).thenReturn(List.of(onDue));
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(3))).thenReturn(List.of(postDue3));
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(7))).thenReturn(List.of(postDue7));
         when(reminderLogRepository.existsByInvoiceIdAndReminderTypeAndStatus(any(), any(), eq("sent")))
                 .thenReturn(false);
         when(whatsAppService.sendReminderMessage(any(), any())).thenReturn(true);
@@ -63,12 +63,29 @@ class ReminderSchedulerServiceTest {
     }
 
     @Test
+    void postDue7FiresOnOverdueInvoice() {
+        Invoice overdueInvoice = invoice("overdue");
+
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today.plusDays(3))).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today)).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(3))).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(7))).thenReturn(List.of(overdueInvoice));
+        when(reminderLogRepository.existsByInvoiceIdAndReminderTypeAndStatus(any(), any(), eq("sent")))
+                .thenReturn(false);
+        when(whatsAppService.sendReminderMessage(any(), any())).thenReturn(true);
+
+        service.processReminders(today);
+
+        verify(whatsAppService).sendReminderMessage(overdueInvoice, "post_due_7");
+    }
+
+    @Test
     void skipsInvoiceWhenReminderAlreadySent() {
-        Invoice onDue = invoice();
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.plusDays(3))).thenReturn(List.of());
-        when(invoiceRepository.findByStatusAndDueDate("sent", today)).thenReturn(List.of(onDue));
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.minusDays(3))).thenReturn(List.of());
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.minusDays(7))).thenReturn(List.of());
+        Invoice onDue = invoice("sent");
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today.plusDays(3))).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today)).thenReturn(List.of(onDue));
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(3))).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(7))).thenReturn(List.of());
         when(reminderLogRepository.existsByInvoiceIdAndReminderTypeAndStatus(onDue.getId(), "on_due", "sent"))
                 .thenReturn(true);
 
@@ -80,11 +97,11 @@ class ReminderSchedulerServiceTest {
 
     @Test
     void logsFailedReminderWithoutCrashingWhenWhatsAppThrows() {
-        Invoice onDue = invoice();
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.plusDays(3))).thenReturn(List.of());
-        when(invoiceRepository.findByStatusAndDueDate("sent", today)).thenReturn(List.of(onDue));
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.minusDays(3))).thenReturn(List.of());
-        when(invoiceRepository.findByStatusAndDueDate("sent", today.minusDays(7))).thenReturn(List.of());
+        Invoice onDue = invoice("sent");
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today.plusDays(3))).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent"), today)).thenReturn(List.of(onDue));
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(3))).thenReturn(List.of());
+        when(invoiceRepository.findByStatusInAndDueDate(List.of("sent", "overdue"), today.minusDays(7))).thenReturn(List.of());
         when(reminderLogRepository.existsByInvoiceIdAndReminderTypeAndStatus(any(), any(), eq("sent")))
                 .thenReturn(false);
         when(whatsAppService.sendReminderMessage(any(), any()))
@@ -99,8 +116,7 @@ class ReminderSchedulerServiceTest {
 
     @Test
     void marksSentInvoicesPastDueAsOverdue() {
-        Invoice overdue = invoice();
-        overdue.setStatus("sent");
+        Invoice overdue = invoice("sent");
         when(invoiceRepository.findByStatusAndDueDateBefore("sent", today))
                 .thenReturn(new ArrayList<>(List.of(overdue)));
 
@@ -111,8 +127,8 @@ class ReminderSchedulerServiceTest {
         verify(invoiceRepository).saveAll(anyList());
     }
 
-    private Invoice invoice() {
-        Invoice invoice = Invoice.builder().invoiceNumber("INV-TEST").status("sent").build();
+    private Invoice invoice(String status) {
+        Invoice invoice = Invoice.builder().invoiceNumber("INV-TEST").status(status).build();
         invoice.setId(UUID.randomUUID());
         return invoice;
     }

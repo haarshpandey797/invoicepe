@@ -30,7 +30,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.user.id = :userId AND YEAR(i.createdAt) = :year")
     long countByUserIdAndYear(@Param("userId") UUID userId, @Param("year") int year);
 
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.user.id = :userId AND YEAR(i.createdAt) = :year AND MONTH(i.createdAt) = :month")
+    long countByUserIdAndYearAndMonth(@Param("userId") UUID userId, @Param("year") int year, @Param("month") int month);
+
     List<Invoice> findByStatusAndDueDate(String status, LocalDate dueDate);
+
+    List<Invoice> findByStatusInAndDueDate(List<String> statuses, LocalDate dueDate);
 
     List<Invoice> findByStatusAndDueDateBefore(String status, LocalDate date);
 

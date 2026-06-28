@@ -51,14 +51,16 @@ public class ReminderSchedulerService {
     }
 
     void processReminders(LocalDate today) {
-        sendForType(PRE_DUE, today.plusDays(3));
-        sendForType(ON_DUE, today);
-        sendForType(POST_DUE_3, today.minusDays(3));
-        sendForType(POST_DUE_7, today.minusDays(7));
+        List<String> sentOnly = List.of(INVOICE_SENT);
+        List<String> sentOrOverdue = List.of(INVOICE_SENT, INVOICE_OVERDUE);
+        sendForType(PRE_DUE, today.plusDays(3), sentOnly);
+        sendForType(ON_DUE, today, sentOnly);
+        sendForType(POST_DUE_3, today.minusDays(3), sentOrOverdue);
+        sendForType(POST_DUE_7, today.minusDays(7), sentOrOverdue);
     }
 
-    private void sendForType(String reminderType, LocalDate dueDate) {
-        List<Invoice> invoices = invoiceRepository.findByStatusAndDueDate(INVOICE_SENT, dueDate);
+    private void sendForType(String reminderType, LocalDate dueDate, List<String> statuses) {
+        List<Invoice> invoices = invoiceRepository.findByStatusInAndDueDate(statuses, dueDate);
         for (Invoice invoice : invoices) {
             boolean alreadySent = reminderLogRepository
                     .existsByInvoiceIdAndReminderTypeAndStatus(invoice.getId(), reminderType, STATUS_SENT);
