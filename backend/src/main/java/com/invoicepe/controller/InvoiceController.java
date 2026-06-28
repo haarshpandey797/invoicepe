@@ -84,4 +84,22 @@ public class InvoiceController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"invoice-" + id + ".pdf\"")
                 .body(pdf);
     }
+
+    @PostMapping("/{id}/send")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> send(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id) {
+
+        InvoiceResponse invoice = invoiceService.send(principal.getUser(), id);
+        return ResponseEntity.ok(ApiResponse.success("Invoice sent", invoice));
+    }
+
+    @PostMapping("/{id}/mark-paid")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> markPaid(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id) {
+
+        InvoiceResponse invoice = invoiceService.markPaid(principal.getUser(), id);
+        return ResponseEntity.ok(ApiResponse.success("Invoice marked as paid", invoice));
+    }
 }

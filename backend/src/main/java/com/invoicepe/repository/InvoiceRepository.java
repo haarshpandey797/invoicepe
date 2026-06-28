@@ -22,6 +22,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Optional<Invoice> findByIdAndUserId(UUID id, UUID userId);
 
+    Optional<Invoice> findByRazorpayPaymentLinkId(String razorpayPaymentLinkId);
+
     boolean existsByInvoiceNumber(String invoiceNumber);
 
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.user.id = :userId AND YEAR(i.createdAt) = :year")
