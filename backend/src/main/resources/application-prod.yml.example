@@ -1,0 +1,50 @@
+# Production config template. Copy to `application-prod.yml` (gitignored) if you
+# bake config into the image, OR — preferred — supply every value as an
+# environment variable in Railway. There are NO fallback defaults on purpose:
+# the app must fail fast at startup if any required secret is missing.
+
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET}
+    expiration: 86400000
+  frontend-url: ${APP_FRONTEND_URL}
+  storage:
+    supabase-url: ${SUPABASE_URL}
+    supabase-key: ${SUPABASE_KEY}
+    bucket-name: invoices
+
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID}
+  key-secret: ${RAZORPAY_KEY_SECRET}
+  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
+  plans:
+    pro: ${RAZORPAY_PLAN_PRO}
+    business: ${RAZORPAY_PLAN_BUSINESS}
+
+whatsapp:
+  phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID}
+  access-token: ${WHATSAPP_ACCESS_TOKEN}
+  api-url: https://graph.facebook.com/v18.0
+
+resend:
+  api-key: ${RESEND_API_KEY}
+  from-email: invoices@invoicepe.in
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
