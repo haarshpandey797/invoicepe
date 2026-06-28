@@ -25,6 +25,9 @@ razorpay:
   key-id: <YOUR_RAZORPAY_KEY_ID>
   key-secret: <YOUR_RAZORPAY_KEY_SECRET>
   webhook-secret: <YOUR_RAZORPAY_WEBHOOK_SECRET>
+  plans:
+    pro: <RAZORPAY_PLAN_ID_PRO>
+    business: <RAZORPAY_PLAN_ID_BUSINESS>
 
 whatsapp:
   phone-number-id: <YOUR_WHATSAPP_PHONE_NUMBER_ID>

@@ -40,6 +40,9 @@ razorpay:
   key-id: rzp_test_xxxxxxxxxxxx
   key-secret: your-razorpay-secret
   webhook-secret: your-webhook-secret
+  plans:
+    pro: ${RAZORPAY_PLAN_PRO:}
+    business: ${RAZORPAY_PLAN_BUSINESS:}
 
 whatsapp:
   phone-number-id: your-phone-number-id

@@ -26,6 +26,9 @@ razorpay:
   key-id: rzp_test_dummy
   key-secret: dummy_secret
   webhook-secret: test_webhook_secret
+  plans:
+    pro: plan_test_pro
+    business: plan_test_business
 
 whatsapp:
   phone-number-id: test-phone-id

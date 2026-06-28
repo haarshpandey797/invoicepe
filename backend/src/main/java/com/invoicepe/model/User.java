@@ -67,6 +67,9 @@ public class User {
     @Column(name = "razorpay_customer_id", length = 100)
     private String razorpayCustomerId;
 
+    @Column(name = "razorpay_subscription_id", length = 100)
+    private String razorpaySubscriptionId;
+
     @Column(name = "whatsapp_enabled")
     @Builder.Default
     private Boolean whatsappEnabled = false;

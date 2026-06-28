@@ -5,6 +5,7 @@ import com.invoicepe.model.Invoice;
 import com.razorpay.PaymentLink;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
+import com.razorpay.Subscription;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -29,10 +30,25 @@ public class RazorpayService {
 
     private static final String HMAC_SHA256 = "HmacSHA256";
 
+    private static final int SUBSCRIPTION_TOTAL_COUNT = 120; // up to 10 years of monthly cycles
+
     private final RazorpayClient razorpayClient;
 
     @Value("${razorpay.webhook-secret}")
     private String webhookSecret;
+
+    @Value("${razorpay.key-id}")
+    private String keyId;
+
+    @Value("${razorpay.plans.pro:}")
+    private String proPlanId;
+
+    @Value("${razorpay.plans.business:}")
+    private String businessPlanId;
+
+    public String getKeyId() {
+        return keyId;
+    }
 
     /**
      * Creates a Razorpay payment link for the invoice total.
@@ -70,6 +86,57 @@ public class RazorpayService {
             log.error("Razorpay payment link creation failed for invoice {}", invoice.getInvoiceNumber(), e);
             throw new InvoicePeException("Failed to create payment link: " + e.getMessage());
         }
+    }
+
+    /**
+     * Creates a Razorpay subscription for the given plan type ("pro"/"business").
+     * Returns the subscription id used by the frontend checkout.
+     */
+    public String createSubscription(String planType) {
+        String planId = resolvePlanId(planType);
+        try {
+            JSONObject request = new JSONObject();
+            request.put("plan_id", planId);
+            request.put("total_count", SUBSCRIPTION_TOTAL_COUNT);
+            request.put("customer_notify", 1);
+
+            Subscription subscription = razorpayClient.subscriptions.create(request);
+            String id = subscription.get("id");
+            log.info("Created Razorpay subscription {} for plan {}", id, planType);
+            return id;
+        } catch (RazorpayException e) {
+            log.error("Razorpay subscription creation failed for plan {}", planType, e);
+            throw new InvoicePeException("Failed to create subscription: " + e.getMessage());
+        }
+    }
+
+    private String resolvePlanId(String planType) {
+        String planId = switch (planType == null ? "" : planType.toLowerCase()) {
+            case "pro" -> proPlanId;
+            case "business" -> businessPlanId;
+            default -> null;
+        };
+        if (planId == null || planId.isBlank()) {
+            throw new InvoicePeException("Unknown or unconfigured plan: " + planType);
+        }
+        return planId;
+    }
+
+    /**
+     * Maps a Razorpay plan id (from a webhook event) back to our plan name,
+     * or {@code null} if it doesn't match a configured plan.
+     */
+    public String planTypeForPlanId(String planId) {
+        if (planId == null || planId.isBlank()) {
+            return null;
+        }
+        if (planId.equals(proPlanId)) {
+            return "pro";
+        }
+        if (planId.equals(businessPlanId)) {
+            return "business";
+        }
+        return null;
     }
 
     /**
