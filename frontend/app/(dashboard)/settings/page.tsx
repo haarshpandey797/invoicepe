@@ -10,10 +10,12 @@ import { Loader2, Info, Check } from "lucide-react";
 import { api, getApiErrorMessage } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
+import { loadRazorpayCheckout, openRazorpayCheckout } from "@/lib/razorpay";
 import type {
   ApiResponse,
   DashboardSummary,
   Plan,
+  SubscriptionResponse,
   UserProfile,
 } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -370,7 +372,8 @@ const PLANS: PlanCard[] = [
 ];
 
 function BillingTab() {
-  const storePlan = useAuthStore((s) => s.user?.plan);
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
   const profileQuery = useProfile();
   const summaryQuery = useQuery({
     queryKey: ["dashboard", "summary"],
@@ -382,13 +385,54 @@ function BillingTab() {
     },
   });
 
-  const plan: Plan = profileQuery.data?.plan ?? storePlan ?? "free";
+  const [upgrading, setUpgrading] = useState<Plan | null>(null);
+
+  const plan: Plan = profileQuery.data?.plan ?? user?.plan ?? "free";
   const used = summaryQuery.data?.invoicesThisMonth ?? 0;
   const usagePct = Math.min(100, Math.round((used / FREE_LIMIT) * 100));
 
-  const handleUpgrade = (target: Plan) => {
-    // Placeholder — wired to Razorpay checkout in the next step.
-    toast.info(`Upgrade to ${target.toUpperCase()} is coming next.`);
+  const handleUpgrade = async (target: Plan) => {
+    setUpgrading(target);
+    try {
+      const ready = await loadRazorpayCheckout();
+      if (!ready) {
+        toast.error("Could not load Razorpay checkout. Check your connection.");
+        return;
+      }
+
+      const { data } = await api.post<ApiResponse<SubscriptionResponse>>(
+        "/api/subscriptions/create",
+        { planType: target }
+      );
+      const sub = data.data;
+
+      const opened = openRazorpayCheckout({
+        key: sub.keyId,
+        subscription_id: sub.subscriptionId,
+        name: "InvoicePe",
+        description: `${target.toUpperCase()} plan subscription`,
+        prefill: { name: user?.fullName, email: user?.email },
+        theme: { color: "#3B82F6" },
+        handler: () => {
+          toast.success(`You are now on ${target.toUpperCase()}!`);
+          // The plan flips once Razorpay's webhook lands; refresh to pick it up.
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        },
+        modal: { ondismiss: () => toast.info("Checkout closed") },
+      });
+      if (!opened) {
+        toast.error("Razorpay checkout is unavailable right now.");
+      }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not start checkout"));
+    } finally {
+      setUpgrading(null);
+    }
+  };
+
+  const handleCancel = () => {
+    toast.info("To cancel your subscription, email support@invoicepe.in");
   };
 
   return (
@@ -403,7 +447,7 @@ function BillingTab() {
             {plan.toUpperCase()}
           </Badge>
         </CardHeader>
-        {plan === "free" && (
+        {plan === "free" ? (
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Invoices this month</span>
@@ -425,6 +469,16 @@ function BillingTab() {
                 You&apos;ve hit the Free plan limit. Upgrade to keep invoicing.
               </p>
             )}
+          </CardContent>
+        ) : (
+          <CardContent>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="text-sm font-medium text-destructive hover:underline"
+            >
+              Cancel subscription
+            </button>
           </CardContent>
         )}
       </Card>
@@ -461,7 +515,12 @@ function BillingTab() {
                   ))}
                 </ul>
                 {p.id !== "free" && !isCurrent && (
-                  <Button className="w-full" onClick={() => handleUpgrade(p.id)}>
+                  <Button
+                    className="w-full"
+                    onClick={() => handleUpgrade(p.id)}
+                    disabled={upgrading !== null}
+                  >
+                    {upgrading === p.id && <Loader2 className="h-4 w-4 animate-spin" />}
                     Upgrade to {p.name}
                   </Button>
                 )}

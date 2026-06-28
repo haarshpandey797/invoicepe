@@ -206,6 +206,20 @@ export interface WhatsAppConfigInput {
   whatsappAccessToken?: string;
 }
 
+/** SubscriptionResponse (POST /api/subscriptions/create). */
+export interface SubscriptionResponse {
+  subscriptionId: string;
+  keyId: string;
+  planType: string;
+}
+
+/** CurrentSubscriptionResponse (GET /api/subscriptions/current). */
+export interface CurrentSubscription {
+  plan: Plan;
+  subscriptionId: string | null;
+  status: string;
+}
+
 /** MonthlyEarning record (dashboard /monthly). */
 export interface MonthlyEarning {
   month: string;
