@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -35,4 +36,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     @Query("SELECT i FROM Invoice i WHERE i.user.id = :userId ORDER BY i.createdAt DESC LIMIT 5")
     List<Invoice> findTop5ByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
+
+    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i " +
+            "WHERE i.user.id = :userId AND i.status = :status")
+    BigDecimal sumTotalAmountByUserIdAndStatus(@Param("userId") UUID userId, @Param("status") String status);
+
+    @Query("SELECT i.status, COUNT(i) FROM Invoice i WHERE i.user.id = :userId GROUP BY i.status")
+    List<Object[]> countByStatusForUser(@Param("userId") UUID userId);
 }
