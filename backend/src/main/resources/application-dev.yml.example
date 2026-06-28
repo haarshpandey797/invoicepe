@@ -1,0 +1,36 @@
+# Copy this file to `application-dev.yml` and fill in real values.
+# `application-dev.yml` is gitignored and must never be committed.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/invoicepe
+    username: <YOUR_DB_USERNAME>
+    password: <YOUR_DB_PASSWORD>
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+app:
+  jwt:
+    secret: <YOUR_256_BIT_JWT_SECRET>
+    expiration: 86400000        # 24 hours in ms
+  frontend-url: http://localhost:3000
+  storage:
+    supabase-url: <YOUR_SUPABASE_PROJECT_URL>
+    supabase-key: <YOUR_SUPABASE_ANON_KEY>
+    bucket-name: invoices
+
+razorpay:
+  key-id: <YOUR_RAZORPAY_KEY_ID>
+  key-secret: <YOUR_RAZORPAY_KEY_SECRET>
+  webhook-secret: <YOUR_RAZORPAY_WEBHOOK_SECRET>
+
+whatsapp:
+  phone-number-id: <YOUR_WHATSAPP_PHONE_NUMBER_ID>
+  access-token: <YOUR_META_ACCESS_TOKEN>
+  api-url: https://graph.facebook.com/v18.0
+
+resend:
+  api-key: <YOUR_RESEND_API_KEY>
+  from-email: invoices@invoicepe.in
