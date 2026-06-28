@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -70,19 +70,25 @@ export default function InvoicesPage() {
   const [tab, setTab] = useState("all");
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 300).toLowerCase().trim();
+  const debouncedSearch = useDebounce(search, 300).trim();
   const [toDelete, setToDelete] = useState<Invoice | null>(null);
 
   const status = tab === "all" ? undefined : (tab as InvoiceStatus);
 
+  // Reset to the first page whenever the search term changes.
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch]);
+
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["invoices", { status, page }],
+    queryKey: ["invoices", { status, search: debouncedSearch, page }],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
         size: String(PAGE_SIZE),
       });
       if (status) params.set("status", status);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       const { data } = await api.get<ApiResponse<PagedResponse<Invoice>>>(
         `/api/invoices?${params.toString()}`
       );
@@ -101,14 +107,7 @@ export default function InvoicesPage() {
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 
-  // Backend list isn't searchable, so we filter the current page client-side.
-  const rows = useMemo(() => {
-    const content = data?.content ?? [];
-    if (!debouncedSearch) return content;
-    return content.filter((inv) =>
-      (inv.clientName ?? "").toLowerCase().includes(debouncedSearch)
-    );
-  }, [data, debouncedSearch]);
+  const rows = data?.content ?? [];
 
   const handleTabChange = (value: string) => {
     setTab(value);

@@ -17,7 +17,7 @@ import { api, getApiErrorMessage } from "@/lib/api";
 import { downloadInvoicePdf } from "@/lib/download";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { useAuthStore } from "@/store/authStore";
-import type { ApiResponse, Invoice, Payment } from "@/types";
+import type { ApiResponse, Invoice, Payment, ReminderLog } from "@/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +55,16 @@ export default function InvoiceDetailPage() {
     queryKey: ["payments"],
     queryFn: async () => {
       const { data } = await api.get<ApiResponse<Payment[]>>("/api/payments");
+      return data.data;
+    },
+  });
+
+  const remindersQuery = useQuery({
+    queryKey: ["reminders", id],
+    queryFn: async () => {
+      const { data } = await api.get<ApiResponse<ReminderLog[]>>(
+        `/api/invoices/${id}/reminders`
+      );
       return data.data;
     },
   });
@@ -382,16 +392,62 @@ export default function InvoiceDetailPage() {
             Reminders
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          {invoice.status === "paid" ? (
-            "This invoice is paid — no reminders are scheduled."
-          ) : isPro ? (
-            "Automatic WhatsApp reminders run daily (3 days before due, on the due date, and 3 & 7 days after)."
+        <CardContent className="p-0">
+          {remindersQuery.isLoading ? (
+            <div className="space-y-3 p-6">
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : !remindersQuery.data || remindersQuery.data.length === 0 ? (
+            <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+              No reminders sent yet.
+            </p>
           ) : (
-            "Upgrade to Pro to enable automatic payment reminders."
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Channel</TableHead>
+                  <TableHead>Sent At</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {remindersQuery.data.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="font-medium">
+                      {formatReminderType(log.reminderType)}
+                    </TableCell>
+                    <TableCell className="capitalize">{log.channel}</TableCell>
+                    <TableCell>{formatDateTime(log.sentAt)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={
+                          log.status === "failed"
+                            ? "font-medium text-destructive"
+                            : "font-medium text-success"
+                        }
+                      >
+                        {log.status === "failed" ? "Failed" : "Sent"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
     </div>
   );
+}
+
+const REMINDER_LABELS: Record<string, string> = {
+  pre_due: "Before due (3 days)",
+  on_due: "On due date",
+  post_due_3: "After due (3 days)",
+  post_due_7: "After due (7 days)",
+};
+
+function formatReminderType(type: string): string {
+  return REMINDER_LABELS[type] ?? type.replace(/_/g, " ");
 }
