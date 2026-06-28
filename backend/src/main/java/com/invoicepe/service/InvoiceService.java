@@ -5,6 +5,7 @@ import com.invoicepe.dto.request.InvoiceItemRequest;
 import com.invoicepe.dto.response.InvoiceResponse;
 import com.invoicepe.dto.response.PagedResponse;
 import com.invoicepe.exception.InvoicePeException;
+import com.invoicepe.exception.PlanLimitException;
 import com.invoicepe.exception.ResourceNotFoundException;
 import com.invoicepe.model.Client;
 import com.invoicepe.model.Invoice;
@@ -29,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,6 +45,9 @@ public class InvoiceService {
     private static final String STATUS_SENT = "sent";
     private static final String STATUS_PAID = "paid";
     private static final String STATUS_CANCELLED = "cancelled";
+    private static final String PLAN_FREE = "free";
+    private static final int FREE_PLAN_MONTHLY_LIMIT = 5;
+    private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
@@ -55,6 +61,17 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse create(User user, CreateInvoiceRequest request) {
+        if (PLAN_FREE.equals(user.getPlan())) {
+            LocalDate now = LocalDate.now(IST);
+            long monthCount = invoiceRepository.countByUserIdAndYearAndMonth(
+                    user.getId(), now.getYear(), now.getMonthValue());
+            if (monthCount >= FREE_PLAN_MONTHLY_LIMIT) {
+                throw new PlanLimitException(
+                        "Free plan allows only " + FREE_PLAN_MONTHLY_LIMIT +
+                        " invoices per month. Upgrade to Pro for unlimited invoices.");
+            }
+        }
+
         Client client = requireClient(user, request.getClientId());
         validateDates(request);
 
@@ -105,6 +122,12 @@ public class InvoiceService {
      */
     @Transactional
     public InvoiceResponse send(User user, UUID id) {
+        if (PLAN_FREE.equals(user.getPlan())) {
+            throw new InvoicePeException(
+                    "Upgrade to Pro to send invoices with payment links and WhatsApp reminders",
+                    HttpStatus.FORBIDDEN);
+        }
+
         Invoice invoice = requireInvoice(user, id);
         if (STATUS_PAID.equals(invoice.getStatus()) || STATUS_CANCELLED.equals(invoice.getStatus())) {
             throw new InvoicePeException(
