@@ -40,7 +40,7 @@ whatsapp:
 
 resend:
   api-key: ${RESEND_API_KEY}
-  from-email: invoices@invoicepe.in
+  from-email: invoices@invoicepe.online
   from-name: ${RESEND_FROM_NAME:InvoicePe}
 
 server:

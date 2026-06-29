@@ -408,7 +408,7 @@ whatsapp:
 
 resend:
   api-key: re_xxxxxxxxxxxx
-  from-email: invoices@invoicepe.in
+  from-email: invoices@invoicepe.online
 
 app:
   frontend-url: http://localhost:3000

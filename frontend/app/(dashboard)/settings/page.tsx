@@ -432,7 +432,7 @@ function BillingTab() {
   };
 
   const handleCancel = () => {
-    toast.info("To cancel your subscription, email support@invoicepe.in");
+    toast.info("To cancel your subscription, email support@invoicepe.online");
   };
 
   return (
