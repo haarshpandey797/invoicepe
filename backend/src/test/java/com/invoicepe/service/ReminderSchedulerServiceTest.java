@@ -34,6 +34,8 @@ class ReminderSchedulerServiceTest {
     private ReminderLogRepository reminderLogRepository;
     @Mock
     private WhatsAppService whatsAppService;
+    @Mock
+    private EmailService emailService;
     @InjectMocks
     private ReminderSchedulerService service;
 

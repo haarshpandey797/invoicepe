@@ -25,6 +25,7 @@ public class ReminderSchedulerService {
 
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     private static final String CHANNEL_WHATSAPP = "whatsapp";
+    private static final String CHANNEL_EMAIL = "email";
     private static final String STATUS_SENT = "sent";
     private static final String STATUS_FAILED = "failed";
     private static final String INVOICE_SENT = "sent";
@@ -38,6 +39,7 @@ public class ReminderSchedulerService {
     private final InvoiceRepository invoiceRepository;
     private final ReminderLogRepository reminderLogRepository;
     private final WhatsAppService whatsAppService;
+    private final EmailService emailService;
 
     @Scheduled(cron = "0 30 3 * * *")
     @Transactional
@@ -73,29 +75,56 @@ public class ReminderSchedulerService {
         }
     }
 
+    /**
+     * Delivers a reminder, preferring WhatsApp and falling back to email so a
+     * client still gets reminded if one channel is down or unconfigured. Logs a
+     * single row recording which channel succeeded, or 'failed' if neither did.
+     */
     private void sendReminder(Invoice invoice, String reminderType) {
-        String status = STATUS_SENT;
+        String channel;
+        String status;
         String error = null;
-        try {
-            boolean delivered = whatsAppService.sendReminderMessage(invoice, reminderType);
-            if (!delivered) {
-                status = STATUS_FAILED;
-                error = "WhatsApp delivery returned false";
-            }
-        } catch (Exception e) {
-            // A WhatsApp failure must never crash the scheduler.
+
+        if (tryWhatsApp(invoice, reminderType)) {
+            channel = CHANNEL_WHATSAPP;
+            status = STATUS_SENT;
+        } else if (tryEmail(invoice, reminderType)) {
+            channel = CHANNEL_EMAIL;
+            status = STATUS_SENT;
+        } else {
+            channel = CHANNEL_WHATSAPP;
             status = STATUS_FAILED;
-            error = e.getMessage();
-            log.error("Reminder {} failed for invoice {}", reminderType, invoice.getInvoiceNumber(), e);
+            error = "No channel delivered the reminder";
         }
 
         reminderLogRepository.save(ReminderLog.builder()
                 .invoice(invoice)
                 .reminderType(reminderType)
-                .channel(CHANNEL_WHATSAPP)
+                .channel(channel)
                 .status(status)
                 .errorMessage(error)
                 .build());
+    }
+
+    private boolean tryWhatsApp(Invoice invoice, String reminderType) {
+        try {
+            return whatsAppService.sendReminderMessage(invoice, reminderType);
+        } catch (Exception e) {
+            // A channel failure must never crash the scheduler.
+            log.error("WhatsApp reminder {} failed for invoice {}",
+                    reminderType, invoice.getInvoiceNumber(), e);
+            return false;
+        }
+    }
+
+    private boolean tryEmail(Invoice invoice, String reminderType) {
+        try {
+            return emailService.sendReminderEmail(invoice, reminderType);
+        } catch (Exception e) {
+            log.error("Email reminder {} failed for invoice {}",
+                    reminderType, invoice.getInvoiceNumber(), e);
+            return false;
+        }
     }
 
     int markOverdue(LocalDate today) {

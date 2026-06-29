@@ -55,6 +55,7 @@ whatsapp:
 resend:
   api-key: ${RESEND_API_KEY:placeholder}
   from-email: invoices@invoicepe.in
+  from-name: ${RESEND_FROM_NAME:InvoicePe}
 
 server:
   port: 8080

@@ -37,3 +37,4 @@ whatsapp:
 resend:
   api-key: <YOUR_RESEND_API_KEY>
   from-email: invoices@invoicepe.in
+  from-name: InvoicePe

@@ -43,6 +43,7 @@ class PlanEnforcementTest {
     @Mock private StorageService storageService;
     @Mock private RazorpayService razorpayService;
     @Mock private WhatsAppService whatsAppService;
+    @Mock private EmailService emailService;
     @InjectMocks private InvoiceService invoiceService;
 
     private User freeUser;

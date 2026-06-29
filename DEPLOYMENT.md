@@ -192,15 +192,147 @@ You need 5 values from Supabase. Get them now:
 
 ## Step 2: Resend (Email)
 
-1. Go to [resend.com](https://resend.com) → sign up.
-2. In the dashboard click **API Keys → Create API Key**.
-3. Name it `invoicepe-prod`, leave permissions as **Full access**.
-4. Copy the `re_...` key — it's shown **once**. This is `RESEND_API_KEY`.
-5. Go to **Domains → Add Domain** and add your domain (e.g. `invoicepe.in`).
-   - Follow the DNS instructions to add the required TXT and MX records in your DNS provider (Cloudflare, GoDaddy, etc.).
-   - Wait for verification (usually 5-10 minutes).
-   - Once verified, you can send from `invoices@invoicepe.in`.
-   > If you skip domain verification, Resend will only send to your own email address (testing only).
+> **Email is live.** `EmailService` (Resend) is wired into the backend:
+> - **Sending an invoice** emails the client the payment link + PDF link, in
+>   addition to WhatsApp (both channels fire on `POST /api/invoices/{id}/send`).
+> - **Reminders** prefer WhatsApp and **fall back to email** if WhatsApp is down or
+>   unconfigured, so the client still gets reminded.
+>
+> Sending is **best-effort**: if `RESEND_API_KEY` is missing or a send fails, the
+> app logs a warning and carries on (the invoice still gets marked `sent`). So you
+> *can* deploy without Resend — you just won't get emails, only WhatsApp. Set it up
+> now to enable email.
+>
+> **The app sends from `invoices@invoicepe.in`** (the `resend.from-email` value).
+> You must verify the domain **`invoicepe.in`** in Resend — or change
+> `resend.from-email` to a domain you own. You can never send from an unverified
+> domain. The display name defaults to `InvoicePe` and is overridable via
+> `RESEND_FROM_NAME`.
+
+### 2a. Create a Resend account
+
+1. Go to [resend.com](https://resend.com) → click **Sign Up**.
+2. Sign up with email or GitHub. Verify your email if prompted.
+3. You land on the Resend dashboard. New accounts start in a **test/sandbox**
+   state — until you verify a domain, you can only send to the email address you
+   signed up with, and only from the shared `onboarding@resend.dev` sender.
+
+### 2b. Create the API key
+
+1. In the left sidebar click **API Keys**.
+2. Click **Create API Key**.
+3. Fill in:
+   - **Name:** `invoicepe-prod` (so you can identify/revoke it later)
+   - **Permission:** **Full access** (it needs send permission; "Sending access" also
+     works if you want to be stricter)
+   - **Domain:** leave as **All domains** for now (you can scope it to `invoicepe.in`
+     after the domain is verified)
+4. Click **Create**.
+5. Copy the `re_...` value **immediately** — Resend shows it **only once**. This is
+   your `RESEND_API_KEY`.
+   - If you lose it, you can't view it again — just delete that key and create a new one.
+
+### 2c. Add and verify your sending domain
+
+> This is what lets you send from `invoices@invoicepe.in` instead of the sandbox
+> sender. Skip only if you're staying in test mode.
+
+1. In the sidebar click **Domains → Add Domain**.
+2. Enter the domain you own: `invoicepe.in` (must match `resend.from-email`).
+3. Pick the **Region** closest to your users (e.g. an India/Asia region). This sets
+   which mail servers your records point to — it does not lock you in, but pick once.
+4. Click **Add**. Resend now shows a list of **DNS records** you must create. They
+   are specific to your domain — copy the exact values from the dashboard. You'll get
+   roughly these (names/values vary, the dashboard is the source of truth):
+
+   | Type | Name (host) | Value | Purpose |
+   |------|-------------|-------|---------|
+   | `MX` | `send` (→ `send.invoicepe.in`) | `feedback-smtp.<region>.amazonses.com` (priority 10) | Bounce/complaint feedback |
+   | `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | **SPF** — authorizes Resend to send |
+   | `TXT` | `resend._domainkey` | `p=MIGfMA0...` (long key) | **DKIM** — cryptographically signs your mail |
+   | `TXT` | `_dmarc` *(optional but recommended)* | `v=DMARC1; p=none;` | **DMARC** — policy + reporting |
+
+5. Add these records in your **DNS provider** (wherever `invoicepe.in`'s nameservers
+   live — Cloudflare, GoDaddy, Namecheap, etc.):
+   - **Cloudflare:** DNS → Records → **Add record**. For each record set Type, Name,
+     and Content from the table. **Important:** set the proxy status to **DNS only**
+     (grey cloud), not Proxied (orange) — proxying breaks mail records.
+   - **GoDaddy / Namecheap:** DNS Management → **Add** → choose the Type, paste Host
+     and Value. For the host, enter just the prefix (e.g. `send`, `resend._domainkey`)
+     — the provider appends your domain automatically.
+   - When a provider asks for the host of a root-level record, `@` means the bare
+     domain.
+
+6. Back in Resend, click **Verify DNS Records** (or just wait — it re-checks
+   automatically).
+   - Verification usually completes in **5–30 minutes**, but DNS can take up to
+     **24–48 hours** to propagate globally. Each record flips to a green
+     **Verified** check as it's detected.
+   - All required records must be green before the domain is fully **Verified**.
+
+### 2d. Confirm it works
+
+1. Once the domain shows **Verified**, you can send from any address on it
+   (e.g. `invoices@invoicepe.in`, `noreply@invoicepe.in`).
+2. Quick test from your terminal (replace the key and recipient):
+   ```bash
+   curl -X POST https://api.resend.com/emails \
+     -H "Authorization: Bearer re_your_key_here" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "from": "invoices@invoicepe.in",
+       "to": "your-personal@email.com",
+       "subject": "InvoicePe Resend test",
+       "html": "<p>If you got this, Resend + DNS are working.</p>"
+     }'
+   ```
+   - A `200` with an `id` in the response = success; check your inbox.
+   - `403` / "domain not verified" = DNS not done propagating, or you tried to send
+     from an unverified domain.
+
+### 2e. How InvoicePe uses email (and the env vars it needs)
+
+The backend reads these keys (set them on Railway in Step 5):
+
+| Env var | Maps to | Required? | Notes |
+|---------|---------|:---------:|-------|
+| `RESEND_API_KEY` | `resend.api-key` | to enable email | The `re_...` key from Step 2b. Omit → email is silently skipped, WhatsApp still works. |
+| `RESEND_FROM_NAME` | `resend.from-name` | no | Display name in the "From". Defaults to `InvoicePe`. |
+
+`resend.from-email` is fixed to `invoices@invoicepe.in` in config (not an env var) — change it in `application-prod.yml`/`application.yml` if you verified a different domain.
+
+What triggers an email:
+- **Invoice send** (`POST /api/invoices/{id}/send`) → emails the client an invoice
+  message with the Razorpay payment link and the PDF link. The recipient is the
+  **client's email** (set when you create the client), so a client with no email is
+  simply skipped — no error.
+- **Daily reminders** → if WhatsApp delivery fails, the reminder is re-attempted by
+  email, and the `reminder_logs.channel` column records `email` for that row.
+
+### 2f. Verify email end-to-end in the live app
+
+After the backend is deployed (Step 5) and `RESEND_API_KEY` is set:
+
+1. Log into your deployed frontend.
+2. **Clients → Add Client** → give it a **real email address you can check**.
+3. **Invoices → New** → create an invoice for that client → **Save**.
+4. Open the invoice → click **Send**.
+5. Within a few seconds the client email should receive the invoice message with the
+   pay link + PDF link. (You also get the WhatsApp message if WhatsApp is set up.)
+6. If nothing arrives: check **Railway → Logs** for `Email sent for invoice ...`
+   (success) or `Email send failed ...` / `Email not configured ...` (problem), and
+   cross-reference the troubleshooting table below.
+
+### 2g. Troubleshooting Resend
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Log says `Email not configured or client email missing` | `RESEND_API_KEY` unset/placeholder, or the client has no email | Set the key on Railway; add an email to the client |
+| Domain stuck "Pending" | DNS not propagated, or proxied (Cloudflare orange cloud) | Set records to **DNS only**; wait; re-verify |
+| `403 domain is not verified` in logs | Sending before verification, or wrong `from` domain | Verify `invoicepe.in`; send only from that domain |
+| Emails land in spam | Missing DKIM/DMARC | Ensure DKIM TXT is verified; add the `_dmarc` record |
+| Can only email yourself | Still in sandbox (no verified domain) | Complete Step 2c |
+| Lost the API key | Keys are shown once | Delete it in **API Keys** and create a new one |
 
 ---
 
@@ -475,13 +607,16 @@ Go through this checklist top to bottom. Each item tests a different part of the
   - Verify GST is calculated correctly (CGST + SGST if same state, IGST if different)
 - [ ] Save as draft → verify it appears in the invoices list
 
-### Send + WhatsApp
+### Send + WhatsApp + Email
 - [ ] Click **Send Invoice** on the draft
 - [ ] The invoice status should change to `sent`
-- [ ] The client's WhatsApp number should receive:
-  - A message with the invoice PDF link
-  - A Razorpay payment link
+- [ ] The client's WhatsApp number should receive a message with the invoice PDF
+      link + Razorpay payment link
+- [ ] The client's **email** should receive the invoice (pay link + PDF link) —
+      requires `RESEND_API_KEY` set and the client having an email address
 - [ ] If WhatsApp doesn't send, check Railway logs for `WhatsAppService` errors
+- [ ] If email doesn't arrive, check Railway logs for `Email sent for invoice ...` vs
+      `Email send failed ...` / `Email not configured ...` (see Step 2g)
 
 ### Payment flow
 - [ ] Click the Razorpay payment link from WhatsApp
@@ -520,4 +655,5 @@ Go through this checklist top to bottom. Each item tests a different part of the
 | Webhook 400 from Razorpay | Wrong webhook secret | `RAZORPAY_WEBHOOK_SECRET` must match what you typed in Razorpay dashboard |
 | Schema validation error on boot | Tables missing or column mismatch | Re-run schema SQL in Supabase SQL Editor |
 | Subscription plan not found | Plan ID blank or wrong | Check `RAZORPAY_PLAN_PRO` / `RAZORPAY_PLAN_BUSINESS` in Railway |
-| Resend emails not delivering | Domain not verified | Complete DNS verification in Resend → Domains |
+| Invoice email not arriving | `RESEND_API_KEY` unset, client has no email, or domain unverified | Set the key; add client email; verify `invoicepe.in` (see Step 2g) |
+| Invoice email in spam | Missing DKIM/DMARC records | Verify DKIM TXT; add `_dmarc` record |
