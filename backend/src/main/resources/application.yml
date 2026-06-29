@@ -35,6 +35,9 @@ app:
     supabase-url: ${SUPABASE_URL:placeholder}
     supabase-key: ${SUPABASE_KEY:placeholder}
     bucket-name: invoices
+    # PDFs live in a PRIVATE bucket; each link is a signed URL valid for this many
+    # seconds (default 90 days). Tune via STORAGE_SIGNED_URL_EXPIRY_SECONDS.
+    signed-url-expiry-seconds: ${STORAGE_SIGNED_URL_EXPIRY_SECONDS:7776000}
 
 razorpay:
   key-id: rzp_test_xxxxxxxxxxxx

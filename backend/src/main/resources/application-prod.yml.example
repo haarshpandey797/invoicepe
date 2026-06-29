@@ -22,6 +22,8 @@ app:
     supabase-url: ${SUPABASE_URL}
     supabase-key: ${SUPABASE_KEY}
     bucket-name: invoices
+    # Bucket is PRIVATE; links are signed URLs. Default 90 days; override if needed.
+    signed-url-expiry-seconds: ${STORAGE_SIGNED_URL_EXPIRY_SECONDS:7776000}
 
 razorpay:
   key-id: ${RAZORPAY_KEY_ID}
